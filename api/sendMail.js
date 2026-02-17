@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).send("Only POST allowed");
 
   try {
-    const { timestamp, osVersion } = req.body || {};
+    const { timestamp, osVersion, latitude, longitude } = req.body || {};
 
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
@@ -19,13 +19,22 @@ export default async function handler(req, res) {
       auth: { user, pass },
     });
 
+    let text =
+      `Time: ${timestamp}\n` +
+      `Device: ${osVersion}\n`;
+
+    if (latitude && longitude) {
+      text += `Latitude: ${latitude}\nLongitude: ${longitude}\n` +
+              `Map: https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}\n`;
+    } else {
+      text += "Location: Not provided\n";
+    }
+
     await transporter.sendMail({
       from: user,
       to,
-      subject: "Time & Device Info",
-      text:
-        `Time: ${timestamp}\n` +
-        `Device: ${osVersion}\n`
+      subject: "Time, Device & Location Info",
+      text
     });
 
     return res.status(200).send("OK");
