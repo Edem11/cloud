@@ -1,33 +1,40 @@
-
-// api/sendMail.js
 import nodemailer from "nodemailer";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).send("Only POST allowed");
   }
-  const { latitude, longitude, timestamp } = req.body;
 
-  // configure transporter using Gmail + App-Password
-  let transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: process.env.anousakra@gmail.com,           // your@gmail.com
-      pass: process.env.cbia ktxb rduz bvir,   // the 16-char App Password
-    },
-  });
+  try {
+    const { latitude, longitude, timestamp } = req.body || {};
 
-  // send the email
-  await transporter.sendMail({
-    from: process.env.GMAIL_USER,
-    to:   process.env.anousakra1@gmail.com,               // your alert address
-    subject: "🚨 Kid Location Alert",
-    html: `
-      <p>Latitude: ${latitude}</p>
-      <p>Longitude: ${longitude}</p>
-      <p>Time: ${timestamp}</p>
-    `,
-  });
+    const user = process.env.anousakra@gmail.com;           // set in Vercel env vars
+    const pass = process.env.cbiaktxbrduzbvir;   // set in Vercel env vars
+    const to   = process.env.anousakra1@gmail.com;             // set in Vercel env vars
 
-  return res.status(200).json({ ok: true });
+    if (!user || !pass || !to) {
+      return res.status(500).send("Missing env vars: GMAIL_USER / GMAIL_APP_PASSWORD / TO_EMAIL");
+    }
+
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user, pass }
+    });
+
+    await transporter.sendMail({
+      from: user,
+      to,
+      subject: "🚨 Kid Location Alert",
+      text:
+        `Latitude: ${latitude}\n` +
+        `Longitude: ${longitude}\n` +
+        `Time: ${timestamp}\n` +
+        `Map: https://maps.google.com/?q=${latitude},${longitude}`
+    });
+
+    return res.status(200).json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).send(err.message || "Server error");
+  }
 }
