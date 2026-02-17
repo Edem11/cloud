@@ -1,79 +1,67 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
-  <title>Find My Kid</title>
-
-  <!-- 1) Include EmailJS SDK -->
-  <script src="https://cdn.emailjs.com/sdk/3.2.0/email.min.js"></script>
-  <script>
-    // 2) Initialize with YOUR actual User ID:
-    emailjs.init("SXzjF2CNLbzgqoKEH");
-  </script>
+  <meta charset="UTF-8">
+  <title>Kid Tracker</title>
 </head>
-
 <body>
-  <h1>📍 Locating…</h1>
+  <h1>Locating…</h1>
   <p id="status">Waiting for permission…</p>
   <button id="retry" style="display:none">Try Again</button>
 
   <script>
-    const statusEl = document.getElementById('status');
-    const retryBtn = document.getElementById('retry');
+    const statusEl = document.getElementById("status");
+    const retryBtn = document.getElementById("retry");
+    const API_URL  = "https://your-project.vercel.app/api/sendMail";
 
-    retryBtn.addEventListener('click', () => {
-      retryBtn.style.display = 'none';
-      statusEl.textContent = 'Retrying…';
-      requestLocation();
-    });
+    retryBtn.onclick = () => {
+      retryBtn.style.display = "none";
+      statusEl.textContent = "Retrying…";
+      locate();
+    };
 
-    function requestLocation() {
+    function locate() {
       if (!navigator.geolocation) {
-        statusEl.textContent = '❌ Geolocation not supported.';
+        statusEl.textContent = "Geolocation not supported";
         return;
       }
-      navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+      navigator.geolocation.getCurrentPosition(success, fail, {
         enableHighAccuracy: true, timeout: 15000
       });
     }
 
-    function onSuccess(position) {
-      const lat = position.coords.latitude.toFixed(6);
-      const lng = position.coords.longitude.toFixed(6);
-      const now = new Date().toLocaleString();
+    function success(pos) {
+      const latitude  = pos.coords.latitude.toFixed(6);
+      const longitude = pos.coords.longitude.toFixed(6);
+      const timestamp = new Date().toLocaleString();
 
       statusEl.innerHTML = `
-        ✅ Got location:<br>
-        Lat: ${lat}, Lng: ${lng}<br>
+        Got location:<br>${latitude}, ${longitude}<br>
         Sending email…
       `;
 
-      // 3) Send email via EmailJS
-      emailjs.send(
-        "service_hzn150j",      // ← Your Service ID
-        "template_k01ob6h",     // ← Your Template ID
-        {
-          latitude: lat,
-          longitude: lng,
-          timestamp: now
-        }
-      ).then(() => {
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude, longitude, timestamp })
+      })
+      .then(r => {
+        if (!r.ok) throw new Error(r.statusText);
         statusEl.innerHTML += "<br>📧 Email sent!";
-      }).catch(err => {
-        console.error("EmailJS error:", err);
-        statusEl.textContent = "❌ Email failed — check console.";
+      })
+      .catch(err => {
+        console.error(err);
+        statusEl.textContent = "Email send failed";
       });
     }
 
-    function onError(err) {
-      console.warn("Geo error:", err);
-      statusEl.textContent = '❌ Unable to get location. Please allow.';
-      retryBtn.style.display = 'inline-block';
+    function fail(err) {
+      statusEl.textContent = "Could not get location";
+      retryBtn.style.display = "inline-block";
     }
 
-    // Start on load
-    document.addEventListener('DOMContentLoaded', requestLocation);
+    // kick it off on load
+    window.addEventListener("DOMContentLoaded", locate);
   </script>
 </body>
 </html>
