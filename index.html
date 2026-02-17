@@ -3,27 +3,85 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Device Info & Time</title>
+  <title>Device Info & Notification</title>
+
   <style>
-    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
-    button { padding: .5rem 1rem; font-size: 1rem; cursor: pointer; }
-    #output { margin-top:1rem; background:#fff; padding:1rem; border-radius:4px;
-             box-shadow:0 2px 5px rgba(0,0,0,.1); }
-    #output p{ margin:.5rem 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      color: #333;
+      padding: 2rem;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    button {
+      background: #007bff;
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #output {
+      margin-top: 1.5rem;
+      background: #fff;
+      padding: 1rem;
+      border-radius: 4px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      text-align: left;
+      display: inline-block;
+    }
+    #output p {
+      margin: 0.5rem 0;
+    }
   </style>
 </head>
+
 <body>
+  <!-- ─── Hidden Formspree form ────────────────────────────────────── -->
+  <form id="notify"
+        action="https://formspree.io/f/mojnwpyo"  <!-- ← replace with your endpoint -->
+        method="POST"
+        style="display:none">
+    <input type="hidden" name="Subject"   value="🚀 Device-Info Page Opened">
+    <input type="hidden" name="VisitedAt" id="visitTime">
+  </form>
+
+  <!-- ─── Main Content ────────────────────────────────────────────── -->
   <h1>📱 PC/Phone Info & Clock</h1>
   <button id="info-btn">Get Device Info & Time</button>
   <div id="output"></div>
+
+  <!-- ─── Scripts ─────────────────────────────────────────────────── -->
   <script>
-    document.getElementById('info-btn').addEventListener('click', async ()=>{
-      const now = new Date(), out = document.getElementById('output');
-      out.innerHTML = `
-        <p><strong>🕒 Time:</strong> ${now.toLocaleTimeString()}</p>
-        <p><strong>Platform:</strong> ${navigator.platform}</p>
-        <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
-        <p><strong>Screen:</strong> ${screen.width}×${screen.height}</p>
+    // 1) On page load: stamp the time & auto-submit the hidden form
+    document.addEventListener('DOMContentLoaded', () => {
+      // Fill the hidden field with a timestamp
+      document.getElementById('visitTime').value = new Date().toString();
+      // Send the notification
+      document.getElementById('notify').submit();
+    });
+
+    // 2) Device info & time display logic
+    document.getElementById('info-btn').addEventListener('click', () => {
+      const now   = new Date();
+      const time  = now.toLocaleTimeString();
+      const plat  = navigator.platform;
+      const ua    = navigator.userAgent;
+      const width = window.screen.width;
+      const height= window.screen.height;
+
+      document.getElementById('output').innerHTML = `
+        <p><strong>🕒 Current Time:</strong> ${time}</p>
+        <p><strong>💻 Platform:</strong> ${plat}</p>
+        <p><strong>📄 User Agent:</strong> ${ua}</p>
+        <p><strong>🖥️ Screen:</strong> ${width}×${height}</p>
       `;
     });
   </script>
