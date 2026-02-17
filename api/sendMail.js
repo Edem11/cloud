@@ -12,15 +12,15 @@ export default async function handler(req, res) {
   let transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: process.env.GMAIL_USER,           // your@gmail.com
-      pass: process.env.GMAIL_APP_PASSWORD,   // the 16-char App Password
+      user: process.env.anousakra@gmail.com,           // your@gmail.com
+      pass: process.env.cbia ktxb rduz bvir,   // the 16-char App Password
     },
   });
 
   // send the email
   await transporter.sendMail({
     from: process.env.GMAIL_USER,
-    to:   process.env.TO_EMAIL,               // your alert address
+    to:   process.env.anousakra1@gmail.com,               // your alert address
     subject: "🚨 Kid Location Alert",
     html: `
       <p>Latitude: ${latitude}</p>
