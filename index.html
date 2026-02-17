@@ -3,85 +3,137 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Kid Tracker</title>
+  <title>Share Location</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 24px; }
-    #status { margin-top: 10px; }
-    button { padding: 8px 14px; }
+    body { font-family: Arial, sans-serif; padding: 24px; max-width: 720px; }
+    button { padding: 10px 16px; margin-right: 10px; }
+    #status { margin-top: 12px; line-height: 1.4; }
+    .small { color:#555; font-size: 14px; }
   </style>
 </head>
 <body>
-  <h1>Locating…</h1>
-  <p id="status">Waiting for permission…</p>
-  <button id="retry" style="display:none">Try Again</button>
+  <h1>Share your location</h1>
+  <p class="small">
+    Tap “Share location”. Please stay outside / near a window for best accuracy.
+  </p>
+
+  <button id="share">Share location</button>
+  <button id="retry" style="display:none">Try again</button>
+
+  <div id="status">Waiting…</div>
 
   <script>
     const statusEl = document.getElementById("status");
+    const shareBtn = document.getElementById("share");
     const retryBtn = document.getElementById("retry");
 
-    // IMPORTANT FIX:
-    // Use a relative URL so it always calls the SAME Vercel deployment
-    // that is hosting this page.
     const API_URL = "/api/sendMail";
 
-    retryBtn.onclick = () => {
-      retryBtn.style.display = "none";
-      statusEl.textContent = "Retrying…";
-      locate();
-    };
+    // How accurate you want it before sending (meters)
+    const TARGET_ACCURACY_METERS = 20;   // try 10 for stricter, 30 for easier
+    const MAX_WAIT_MS = 30000;           // stop trying after 30s
 
-    function locate() {
+    shareBtn.onclick = () => start();
+    retryBtn.onclick = () => start();
+
+    async function start() {
+      retryBtn.style.display = "none";
+
       if (!navigator.geolocation) {
-        statusEl.textContent = "Geolocation not supported";
+        statusEl.textContent = "Geolocation not supported on this device.";
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(success, fail, {
-        enableHighAccuracy: true,
-        timeout: 15000
-      });
+      statusEl.textContent = "Requesting permission…";
+
+      // If permission is already denied, tell user what to do
+      if (navigator.permissions?.query) {
+        try {
+          const p = await navigator.permissions.query({ name: "geolocation" });
+          if (p.state === "denied") {
+            statusEl.textContent =
+              "Location is blocked for this site. Enable it in browser Site Settings → Location → Allow, then retry.";
+            retryBtn.style.display = "inline-block";
+            return;
+          }
+        } catch {}
+      }
+
+      statusEl.textContent = "Getting accurate location…";
+
+      const startedAt = Date.now();
+      let best = null;
+
+      const watchId = navigator.geolocation.watchPosition(
+        async (pos) => {
+          const { latitude, longitude, accuracy } = pos.coords;
+
+          // keep the best reading so far
+          if (!best || accuracy < best.accuracy) best = { latitude, longitude, accuracy, pos };
+
+          statusEl.innerHTML =
+            `Accuracy: <b>${Math.round(accuracy)} m</b><br>` +
+            `Waiting for ≤ <b>${TARGET_ACCURACY_METERS} m</b> (best: ${Math.round(best.accuracy)} m)…`;
+
+          const timedOut = (Date.now() - startedAt) > MAX_WAIT_MS;
+
+          // Send when good enough, or when time runs out (send best we got)
+          if (accuracy <= TARGET_ACCURACY_METERS || timedOut) {
+            navigator.geolocation.clearWatch(watchId);
+            await send(best.pos, timedOut);
+          }
+        },
+        (err) => {
+          if (err.code === 1) {
+            statusEl.textContent = "Location permission denied. Please allow location and try again.";
+          } else {
+            statusEl.textContent = "Could not get location. Try again (better signal outside).";
+          }
+          retryBtn.style.display = "inline-block";
+        },
+        {
+          enableHighAccuracy: true,
+          maximumAge: 0,
+          timeout: 20000
+        }
+      );
     }
 
-    async function success(pos) {
-      const latitude  = pos.coords.latitude.toFixed(6);
-      const longitude = pos.coords.longitude.toFixed(6);
-      const timestamp = new Date().toLocaleString();
+    async function send(pos, wasTimeout) {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const timestamp = new Date(pos.timestamp).toISOString();
 
-      statusEl.innerHTML = `
-        Got location:<br>${latitude}, ${longitude}<br>
-        Sending email…
-      `;
+      statusEl.innerHTML =
+        `Sending…<br>` +
+        `Lat: ${latitude}<br>` +
+        `Lng: ${longitude}<br>` +
+        `Accuracy: ${Math.round(accuracy)} m` +
+        (wasTimeout ? "<br><b>Note:</b> Sent best reading after timeout." : "");
 
       try {
         const res = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ latitude, longitude, timestamp })
+          body: JSON.stringify({
+            latitude, longitude, accuracy, timestamp,
+            note: wasTimeout ? "Sent best reading after timeout" : "Accurate reading"
+          })
         });
 
-        const text = await res.text(); // read response even if error
+        const text = await res.text();
 
         if (!res.ok) {
-          console.error("API error:", res.status, text);
-          statusEl.textContent = `Email send failed (${res.status}): ${text}`;
+          statusEl.textContent = `Email failed (${res.status}): ${text}`;
+          retryBtn.style.display = "inline-block";
           return;
         }
 
-        statusEl.innerHTML += "<br>📧 Email sent!";
-      } catch (err) {
-        console.error("Fetch failed:", err);
-        statusEl.textContent = "Email send failed (network error)";
+        statusEl.innerHTML += "<br><b>Email sent.</b>";
+      } catch (e) {
+        statusEl.textContent = "Network error sending email. Try again.";
+        retryBtn.style.display = "inline-block";
       }
     }
-
-    function fail(err) {
-      console.warn("Geo error:", err);
-      statusEl.textContent = "Could not get location (allow location and retry)";
-      retryBtn.style.display = "inline-block";
-    }
-
-    // start on load
-    window.addEventListener("DOMContentLoaded", locate);
   </script>
 </body>
 </html>
