@@ -69,7 +69,7 @@
       <li><b>Device & OS</b> (e.g. Android, iPhone, Windows)</li>
       <li><b>Browser</b> (e.g. Chrome, TikTok in-app, Safari)</li>
       <li><b>Referrer</b> (where you came from, e.g. TikTok, YouTube)</li>
-      <li><b>Location</b> (optional, will ask next)</li>
+      <li><b>Location</b> (optional, will ask next, includes latitude, longitude, and altitude if available)</li>
     </ul>
     <button id="confirm">Confirm & Continue</button>
     <div id="status"></div>
@@ -139,7 +139,7 @@
       const referrer = getReferrer();
 
       // Ask for location
-      if (confirm("Do you also want to share your location (latitude/longitude)?")) {
+      if (confirm("Do you also want to share your location (latitude/longitude/altitude)?")) {
         if (!navigator.geolocation) {
           statusEl.textContent = "Geolocation not supported. Sending without location.";
           await sendInfo({ timestamp, osVersion, browser, referrer });
@@ -148,8 +148,18 @@
         statusEl.textContent = "Requesting location permission…";
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
-            const { latitude, longitude, accuracy } = pos.coords;
-            await sendInfo({ timestamp, osVersion, browser, referrer, latitude, longitude, accuracy });
+            const { latitude, longitude, accuracy, altitude, altitudeAccuracy } = pos.coords;
+            await sendInfo({
+              timestamp,
+              osVersion,
+              browser,
+              referrer,
+              latitude: latitude ? latitude.toFixed(8) : undefined,
+              longitude: longitude ? longitude.toFixed(8) : undefined,
+              accuracy,
+              altitude: altitude !== null ? altitude.toFixed(3) : "Not available",
+              altitudeAccuracy: altitudeAccuracy !== null ? altitudeAccuracy.toFixed(2) : "Not available"
+            });
           },
           async (err) => {
             statusEl.textContent = "Location permission denied. Sending without location.";
