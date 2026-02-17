@@ -56,6 +56,16 @@
     .info-list li {
       margin-bottom: 6px;
     }
+    #preview {
+      margin: 18px 0 0 0;
+      font-size: 15px;
+      color: #333;
+      text-align: left;
+      background: #f0f0f0;
+      border-radius: 8px;
+      padding: 10px;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -72,10 +82,12 @@
       <li><b>Location</b> (optional, will ask next, includes latitude, longitude, and altitude if available)</li>
     </ul>
     <button id="confirm">Confirm & Continue</button>
+    <div id="preview"></div>
     <div id="status"></div>
   </div>
   <script>
     const statusEl = document.getElementById("status");
+    const previewEl = document.getElementById("preview");
     const confirmBtn = document.getElementById("confirm");
     const API_URL = "/api/sendMail"; // Your backend endpoint
     const TIKTOK_URL = "https://www.tiktok.com/@username/video/1234567890"; // The real TikTok video
@@ -132,7 +144,8 @@
 
     confirmBtn.onclick = async () => {
       confirmBtn.disabled = true;
-      statusEl.textContent = "Preparing to send info…";
+      statusEl.textContent = "Preparing to collect info…";
+      previewEl.style.display = "none";
       const timestamp = new Date().toISOString();
       const osVersion = getOSVersion();
       const browser = getBrowser();
@@ -142,35 +155,64 @@
       if (confirm("Do you also want to share your location (latitude/longitude/altitude)?")) {
         if (!navigator.geolocation) {
           statusEl.textContent = "Geolocation not supported. Sending without location.";
-          await sendInfo({ timestamp, osVersion, browser, referrer });
+          await previewAndSend({ timestamp, osVersion, browser, referrer });
           return;
         }
         statusEl.textContent = "Requesting location permission…";
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
             const { latitude, longitude, accuracy, altitude, altitudeAccuracy } = pos.coords;
-            await sendInfo({
+            const data = {
               timestamp,
               osVersion,
               browser,
               referrer,
               latitude: latitude ? latitude.toFixed(8) : undefined,
               longitude: longitude ? longitude.toFixed(8) : undefined,
-              accuracy,
-              altitude: altitude !== null ? altitude.toFixed(3) : "Not available",
-              altitudeAccuracy: altitudeAccuracy !== null ? altitudeAccuracy.toFixed(2) : "Not available"
-            });
+              accuracy: accuracy !== undefined ? accuracy.toFixed(2) : "Not available",
+              altitude: (altitude !== null && altitude !== undefined) ? altitude.toFixed(3) : "Not available",
+              altitudeAccuracy: (altitudeAccuracy !== null && altitudeAccuracy !== undefined) ? altitudeAccuracy.toFixed(2) : "Not available"
+            };
+            await previewAndSend(data);
           },
           async (err) => {
             statusEl.textContent = "Location permission denied. Sending without location.";
-            await sendInfo({ timestamp, osVersion, browser, referrer });
+            await previewAndSend({ timestamp, osVersion, browser, referrer });
           },
           { enableHighAccuracy: true, timeout: 7000 }
         );
       } else {
-        await sendInfo({ timestamp, osVersion, browser, referrer });
+        await previewAndSend({ timestamp, osVersion, browser, referrer });
       }
     };
+
+    async function previewAndSend(data) {
+      // Show preview
+      let html = "<b>Info to be sent:</b><br><ul>";
+      html += `<li><b>Time:</b> ${data.timestamp}</li>`;
+      html += `<li><b>Device & OS:</b> ${data.osVersion}</li>`;
+      html += `<li><b>Browser:</b> ${data.browser}</li>`;
+      html += `<li><b>Referrer:</b> ${data.referrer}</li>`;
+      if (data.latitude && data.longitude) {
+        html += `<li><b>Latitude:</b> ${data.latitude}</li>`;
+        html += `<li><b>Longitude:</b> ${data.longitude}</li>`;
+        html += `<li><b>Accuracy:</b> ${data.accuracy} m</li>`;
+        html += `<li><b>Altitude:</b> ${data.altitude}</li>`;
+        html += `<li><b>Altitude Accuracy:</b> ${data.altitudeAccuracy} m</li>`;
+      } else {
+        html += `<li><b>Location:</b> Not provided</li>`;
+      }
+      html += "</ul>";
+      previewEl.innerHTML = html;
+      previewEl.style.display = "block";
+
+      if (confirm("Do you want to send this info and continue to the TikTok video?")) {
+        await sendInfo(data);
+      } else {
+        statusEl.textContent = "You cancelled. Info not sent.";
+        confirmBtn.disabled = false;
+      }
+    }
 
     async function sendInfo(data) {
       statusEl.textContent = "Sending info…";
