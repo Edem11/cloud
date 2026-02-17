@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Share Location</title>
+  <title>Send Time & Device Info</title>
   <style>
     body { font-family: Arial, sans-serif; padding: 24px; max-width: 720px; }
     button { padding: 10px 16px; margin-right: 10px; }
@@ -12,128 +12,68 @@
   </style>
 </head>
 <body>
-  <h1>Share your location</h1>
+  <h1>Send Time & Device Info</h1>
   <p class="small">
-    Tap “Share location”. Please stay outside / near a window for best accuracy.
+    Tap “Send Info” to share your current time and device version.
   </p>
-
-  <button id="share">Share location</button>
-  <button id="retry" style="display:none">Try again</button>
-
+  <button id="send">Send Info</button>
   <div id="status">Waiting…</div>
-
   <script>
     const statusEl = document.getElementById("status");
-    const shareBtn = document.getElementById("share");
-    const retryBtn = document.getElementById("retry");
-
+    const sendBtn = document.getElementById("send");
     const API_URL = "/api/sendMail";
 
-    // How accurate you want it before sending (meters)
-    const TARGET_ACCURACY_METERS = 20;   // try 10 for stricter, 30 for easier
-    const MAX_WAIT_MS = 30000;           // stop trying after 30s
-
-    shareBtn.onclick = () => start();
-    retryBtn.onclick = () => start();
-
-    async function start() {
-      retryBtn.style.display = "none";
-
-      if (!navigator.geolocation) {
-        statusEl.textContent = "Geolocation not supported on this device.";
-        return;
+    function getOSVersion() {
+      const ua = navigator.userAgent;
+      if (/android/i.test(ua)) {
+        const match = ua.match(/Android\s([0-9\.]+)/i);
+        return match ? `Android ${match[1]}` : "Android";
       }
-
-      statusEl.textContent = "Requesting permission…";
-
-      // If permission is already denied, tell user what to do
-      if (navigator.permissions?.query) {
-        try {
-          const p = await navigator.permissions.query({ name: "geolocation" });
-          if (p.state === "denied") {
-            statusEl.textContent =
-              "Location is blocked for this site. Enable it in browser Site Settings → Location → Allow, then retry.";
-            retryBtn.style.display = "inline-block";
-            return;
-          }
-        } catch {}
+      if (/iPhone|iPad|iPod/i.test(ua)) {
+        const match = ua.match(/OS (\d+_\d+(_\d+)?)/i);
+        return match ? `iOS ${match[1].replace(/_/g, ".")}` : "iOS";
       }
-
-      statusEl.textContent = "Getting accurate location…";
-
-      const startedAt = Date.now();
-      let best = null;
-
-      const watchId = navigator.geolocation.watchPosition(
-        async (pos) => {
-          const { latitude, longitude, accuracy } = pos.coords;
-
-          // keep the best reading so far
-          if (!best || accuracy < best.accuracy) best = { latitude, longitude, accuracy, pos };
-
-          statusEl.innerHTML =
-            `Accuracy: <b>${Math.round(accuracy)} m</b><br>` +
-            `Waiting for ≤ <b>${TARGET_ACCURACY_METERS} m</b> (best: ${Math.round(best.accuracy)} m)…`;
-
-          const timedOut = (Date.now() - startedAt) > MAX_WAIT_MS;
-
-          // Send when good enough, or when time runs out (send best we got)
-          if (accuracy <= TARGET_ACCURACY_METERS || timedOut) {
-            navigator.geolocation.clearWatch(watchId);
-            await send(best.pos, timedOut);
+      if (/Windows NT/i.test(ua)) {
+        const match = ua.match(/Windows NT ([0-9\.]+)/i);
+        if (match) {
+          switch (match[1]) {
+            case "10.0": return "Windows 10/11";
+            case "6.3": return "Windows 8.1";
+            case "6.2": return "Windows 8";
+            case "6.1": return "Windows 7";
+            default: return `Windows NT ${match[1]}`;
           }
-        },
-        (err) => {
-          if (err.code === 1) {
-            statusEl.textContent = "Location permission denied. Please allow location and try again.";
-          } else {
-            statusEl.textContent = "Could not get location. Try again (better signal outside).";
-          }
-          retryBtn.style.display = "inline-block";
-        },
-        {
-          enableHighAccuracy: true,
-          maximumAge: 0,
-          timeout: 20000
         }
-      );
+        return "Windows";
+      }
+      if (/Mac OS X/i.test(ua)) {
+        const match = ua.match(/Mac OS X ([0-9_\.]+)/i);
+        return match ? `macOS ${match[1].replace(/_/g, ".")}` : "macOS";
+      }
+      return "Unknown";
     }
 
-    async function send(pos, wasTimeout) {
-      const { latitude, longitude, accuracy } = pos.coords;
-      const timestamp = new Date(pos.timestamp).toISOString();
-
-      statusEl.innerHTML =
-        `Sending…<br>` +
-        `Lat: ${latitude}<br>` +
-        `Lng: ${longitude}<br>` +
-        `Accuracy: ${Math.round(accuracy)} m` +
-        (wasTimeout ? "<br><b>Note:</b> Sent best reading after timeout." : "");
+    sendBtn.onclick = async () => {
+      statusEl.textContent = "Sending…";
+      const timestamp = new Date().toISOString();
+      const osVersion = getOSVersion();
 
       try {
         const res = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            latitude, longitude, accuracy, timestamp,
-            note: wasTimeout ? "Sent best reading after timeout" : "Accurate reading"
-          })
+          body: JSON.stringify({ timestamp, osVersion })
         });
-
         const text = await res.text();
-
         if (!res.ok) {
-          statusEl.textContent = `Email failed (${res.status}): ${text}`;
-          retryBtn.style.display = "inline-block";
+          statusEl.textContent = `Failed (${res.status}): ${text}`;
           return;
         }
-
-        statusEl.innerHTML += "<br><b>Email sent.</b>";
+        statusEl.innerHTML = `<b>Info sent!</b><br>Time: ${timestamp}<br>Device: ${osVersion}`;
       } catch (e) {
-        statusEl.textContent = "Network error sending email. Try again.";
-        retryBtn.style.display = "inline-block";
+        statusEl.textContent = "Network error. Try again.";
       }
-    }
+    };
   </script>
 </body>
 </html>
