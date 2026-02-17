@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Device Info & Time</title>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; background: #f5f5f5; }
+    button { padding: .5rem 1rem; font-size: 1rem; cursor: pointer; }
+    #output { margin-top:1rem; background:#fff; padding:1rem; border-radius:4px;
+             box-shadow:0 2px 5px rgba(0,0,0,.1); }
+    #output p{ margin:.5rem 0; }
+  </style>
+</head>
+<body>
+  <h1>📱 PC/Phone Info & Clock</h1>
+  <button id="info-btn">Get Device Info & Time</button>
+  <div id="output"></div>
+  <script>
+    document.getElementById('info-btn').addEventListener('click', async ()=>{
+      const now = new Date(), out = document.getElementById('output');
+      out.innerHTML = `
+        <p><strong>🕒 Time:</strong> ${now.toLocaleTimeString()}</p>
+        <p><strong>Platform:</strong> ${navigator.platform}</p>
+        <p><strong>User Agent:</strong> ${navigator.userAgent}</p>
+        <p><strong>Screen:</strong> ${screen.width}×${screen.height}</p>
+      `;
+    });
+  </script>
+</body>
+</html>
